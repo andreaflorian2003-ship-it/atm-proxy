@@ -1,17 +1,12 @@
-// Proxy ATM Milano per ESP32
-// Gira su Node.js (Render.com, Railway, ecc.)
-
+// Proxy ATM Milano per ESP32 - v2 (no chunked encoding)
 const https = require('https');
 const http  = require('http');
 
 const PORT = process.env.PORT || 3000;
 
-// Fermata e linea vengono passate come parametri nell'URL
-// Esempio: /atm?linea=40&fermata=13504
 http.createServer((req, res) => {
   const urlObj = new URL(req.url, `http://localhost:${PORT}`);
 
-  // Health check – Render lo usa per sapere se il server è vivo
   if (urlObj.pathname === '/') {
     res.writeHead(200);
     res.end('ATM Proxy OK');
@@ -57,27 +52,39 @@ http.createServer((req, res) => {
   };
 
   const proxyReq = https.request(options, (proxyRes) => {
-    let data = '';
-    proxyRes.on('data', chunk => data += chunk);
+    // Raccoglie TUTTI i dati prima di rispondere
+    let chunks = [];
+    proxyRes.on('data', chunk => chunks.push(chunk));
     proxyRes.on('end', () => {
-      // Rigira la risposta all'ESP32
+      const body = Buffer.concat(chunks).toString('utf8');
+      console.log(`[${new Date().toISOString()}] ${linea}@${fermata} → ${proxyRes.statusCode} (${body.length} bytes)`);
+
+      // Risponde in UNA SOLA volta con Content-Length esplicito
+      // Questo evita il chunked encoding che confonde l'ESP32
+      const bodyBuffer = Buffer.from(body, 'utf8');
       res.writeHead(proxyRes.statusCode, {
-        'Content-Type':  'application/json',
-        'Access-Control-Allow-Origin': '*'
+        'Content-Type':                'application/json',
+        'Content-Length':              bodyBuffer.length,
+        'Access-Control-Allow-Origin': '*',
+        'Connection':                  'close',
       });
-      res.end(data);
-      console.log(`[${new Date().toISOString()}] ${linea}@${fermata} → ${proxyRes.statusCode}`);
+      res.end(bodyBuffer);
     });
   });
 
   proxyReq.on('error', (e) => {
     console.error('Errore proxy:', e.message);
-    res.writeHead(502);
-    res.end('Errore proxy: ' + e.message);
+    const msg = Buffer.from('Errore proxy: ' + e.message, 'utf8');
+    res.writeHead(502, {
+      'Content-Type':   'text/plain',
+      'Content-Length': msg.length,
+      'Connection':     'close',
+    });
+    res.end(msg);
   });
 
   proxyReq.end();
 
 }).listen(PORT, () => {
-  console.log(`Proxy ATM in ascolto sulla porta ${PORT}`);
+  console.log(`Proxy ATM v2 in ascolto sulla porta ${PORT}`);
 });
