@@ -5,8 +5,12 @@ app = Flask(__name__)
 
 @app.route('/atm')
 def get_atm():
-    linea = request.args.get('linea')
-    fermata = request.args.get('fermata')
+    # Puliamo i parametri da eventuali caratteri estranei o parentesi
+    linea = request.args.get('linea', '').strip()
+    fermata = request.args.get('fermata', '').strip()
+    
+    # Rimuoviamo eventuali caratteri non numerici o parentesi se presenti
+    fermata = ''.join(filter(str.isdigit, fermata))
     
     url = f"https://giromilano.atm.it/proxy.tpportal/api/tpPortal/geodata/pois/stops/{fermata}"
     
@@ -17,13 +21,13 @@ def get_atm():
     
     try:
         response = requests.get(url, headers=headers, impersonate="chrome", timeout=15)
-        # Stampiamo nei log di Render cosa arriva esattamente
-        print(f"Status Code: {response.status_code}")
-        print(f"Testo ricevuto: {response.text[:200]}")
-        
-        return response.text, 200, {'Content-Type': 'application/json'}
+        return jsonify(response.json())
     except Exception as e:
-        return str(e), 500
+        return jsonify({
+            "error": str(e), 
+            "status_code": getattr(response, 'status_code', None),
+            "text_restituito": getattr(response, 'text', 'Nessuna risposta')
+        }), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
