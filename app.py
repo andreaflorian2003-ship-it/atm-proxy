@@ -12,28 +12,27 @@ def get_atm():
     fermata = ''.join(filter(str.isdigit, fermata))
     
     try:
-        # Usiamo una Sessione: così prima visitiamo la home per "ingannare" Akamai con i cookie, poi chiediamo i dati
         s = requests.Session()
-        
-        # 1. Visita la home page per raccogliere i cookie di sicurezza
-        s.get("https://giromilano.atm.it/", impersonate="chrome", timeout=10)
-        
-        # 2. Richiesta dei dati veri e propri usando la stessa sessione
-        url = f"https://giromilano.atm.it/proxy.tpportal/api/tpMob/StopMonitoring?codiceLinea={linea}&codiceEnte=ATM&codiceFermata={fermata}"
+        # Header completi da browser reale
         headers = {
-            "Accept": "application/json, text/plain, */*",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "application/json, text/javascript, */*; q=0.01",
+            "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
             "Origin": "https://giromilano.atm.it",
             "Referer": "https://giromilano.atm.it/"
         }
         
-        response = s.get(url, headers=headers, impersonate="chrome", timeout=15)
+        # Endpoint con tutti i parametri formali
+        url = f"https://giromilano.atm.it/proxy.tpportal/api/tpMob/StopMonitoring?codiceLinea={linea}&codiceEnte=ATM&codiceFermata={fermata}"
+        
+        response = s.get(url, headers=headers, impersonate="chrome120", timeout=15)
         return jsonify(response.json())
         
     except Exception as e:
         return jsonify({
             "error": str(e), 
             "status_code": getattr(response, 'status_code', None) if 'response' in locals() else None,
-            "text_restituito": getattr(response, 'text', 'Nessuna risposta') if 'response' in locals() else 'Errore connessione'
+            "text_restituito": getattr(response, 'text', 'Nessuna risposta') if 'response' in locals() else 'Errore'
         }), 500
 
 if __name__ == '__main__':
