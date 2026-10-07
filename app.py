@@ -5,13 +5,11 @@ app = Flask(__name__)
 
 @app.route('/atm')
 def get_atm():
-    # Puliamo i parametri da eventuali caratteri estranei o parentesi
-    linea = request.args.get('linea', '').strip()
+    # Estraiamo solo i numeri della fermata per sicurezza assoluta
     fermata = request.args.get('fermata', '').strip()
-    
-    # Rimuoviamo eventuali caratteri non numerici o parentesi se presenti
     fermata = ''.join(filter(str.isdigit, fermata))
     
+    # URL base senza forzare stringhe strane
     url = f"https://giromilano.atm.it/proxy.tpportal/api/tpPortal/geodata/pois/stops/{fermata}"
     
     headers = {
@@ -20,6 +18,7 @@ def get_atm():
     }
     
     try:
+        # Usiamo l'impersonazione di Chrome
         response = requests.get(url, headers=headers, impersonate="chrome", timeout=15)
         return jsonify(response.json())
     except Exception as e:
