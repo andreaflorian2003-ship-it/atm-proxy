@@ -17,14 +17,13 @@ def get_atm():
     
     try:
         response = requests.get(url, headers=headers, impersonate="chrome", timeout=15)
-        # Proviamo a restituire direttamente il JSON, ma se fallisce vediamo il testo
-        return jsonify(response.json())
+        # Stampiamo nei log di Render cosa arriva esattamente
+        print(f"Status Code: {response.status_code}")
+        print(f"Testo ricevuto: {response.text[:200]}")
+        
+        return response.text, 200, {'Content-Type': 'application/json'}
     except Exception as e:
-        return jsonify({
-            "error": str(e), 
-            "status_code": getattr(response, 'status_code', None),
-            "text_restituito": getattr(response, 'text', 'Nessuna risposta')
-        }), 500
+        return str(e), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
